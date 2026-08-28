@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="92" viewBox="0 0 640 92" role="img" aria-label="Clip color legend">
+  <rect width="640" height="92" rx="10" fill="#161616"/>
+  <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#f4f4f4">
+    <rect x="16" y="22" width="22" height="22" rx="4" fill="#e07a1f"/>
+    <text x="46" y="38">D-Log2 — Orange</text>
+    <rect x="230" y="22" width="22" height="22" rx="4" fill="#1d3f73"/>
+    <text x="260" y="38">D-Log — Navy</text>
+    <rect x="430" y="22" width="22" height="22" rx="4" fill="#d45b8c"/>
+    <text x="460" y="38">D-Log M — Pink</text>
+    <rect x="16" y="56" width="22" height="22" rx="4" fill="#2a9d8f"/>
+    <text x="46" y="72">HLG — Teal</text>
+    <text x="230" y="72" fill="#9a9a9a">Rec.709 — no clip color</text>
+  </g>
+</svg>
