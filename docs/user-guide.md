@@ -151,3 +151,7 @@ clip.MP4    D-Log2
 ```
 
 That is the same tag ExifTool prints as `Keys:DjiCameraColorGammaSxS`.
+
+---
+
+If this saved you a bin-sort, [buy me a coffee](https://buymeacoffee.com/eriksutton) — optional, helps keep the lights on.

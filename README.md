@@ -76,3 +76,5 @@ python3 dji_clip_color.py clip.MP4
 
 Apache-2.0. Parser ported from
 [OpenPocketCine](https://github.com/erik-sutton95/OpenPocketCine) `ClipColorProfile`.
+
+If this saved you a bin-sort, [buy me a coffee](https://buymeacoffee.com/eriksutton) — optional, helps keep the lights on.
