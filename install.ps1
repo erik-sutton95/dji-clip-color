@@ -62,7 +62,7 @@ try {
     Write-Host "  2. Import original MP4 / MOV takes (not .LRF / .XRF proxies)."
     Write-Host "  3. Select clips in the Media Pool."
     Write-Host "  4. Workspace > Scripts > DJI Clip Color"
-    Write-Host "  5. Right-click a Media Pool column header and enable DJI Color."
+    Write-Host "  5. Customize Columns: add Color Space Notes or Keywords (search notes / keyword)."
     Write-Host ""
     Write-Host "Clip colors:  Orange = D-Log2   Navy = D-Log   Pink = D-Log M   Teal = HLG"
 

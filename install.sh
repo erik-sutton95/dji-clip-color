@@ -92,7 +92,7 @@ echo "  1. Restart DaVinci Resolve if it is already open."
 echo "  2. Import original MP4 / MOV takes (not .LRF / .XRF proxies)."
 echo "  3. Select clips in the Media Pool."
 echo "  4. Workspace > Scripts > DJI Clip Color"
-echo "  5. Right-click a Media Pool column header and enable DJI Color."
+echo "  5. Customize Columns: add Color Space Notes or Keywords (search notes / keyword)."
 echo
 echo "Clip colors:  Orange = D-Log2   Navy = D-Log   Pink = D-Log M   Teal = HLG"
 
