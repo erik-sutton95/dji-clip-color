@@ -50,12 +50,35 @@ restart.
    even when the original is log.
 2. In the **Media Pool**, select the clips.
 3. **Workspace → Scripts → DJI Clip Color**.
-4. In Media Pool **list view**, open Customize Columns and add **Color Space
-   Notes** or **Keywords** (search `notes` or `keyword`). There is no **DJI
-   Color** built-in column. Clip colors (orange / navy) show without this.
+4. Show the **D-Log / D-Log2** text next to clip colors (see below).
 
 A short report lists how many clips were D-Log2, D-Log, HLG, or Rec.709, and
 any skips.
+
+## Show D-Log / D-Log2 in the Media Pool list
+
+Clip color (orange / navy) is enough to spot log at a glance. For the actual
+words **D-Log** and **D-Log2** in a column, use a **built-in** field. There is
+no **DJI Color** entry in Customize Columns — searching `dji` will stay empty.
+
+The script writes the label to **Color Space Notes** and **Keywords**.
+
+1. In the Media Pool, switch to **list view** (the list icon, not thumbnails).
+2. Open **Customize Columns**:
+   - click the column-layout control above the list, or
+   - right-click any column header (Clip Name, File Path, …).
+3. In the search box at the top, type **`notes`** or **`keyword`** — not `dji`.
+4. From **Column Fields**, add:
+   - **Color Space Notes** (best: it is only this label), or
+   - **Keywords** (same text, appended to any keywords you already had).
+5. Click **Save**.
+
+Run the script **before** you expect text in the column. Empty cells mean those
+clips have not been stamped yet. Select them and run **Workspace → Scripts →
+DJI Clip Color** again.
+
+You can also add **Input Color Space** and **Input Gamma** the same way
+(search `input`) if you want the RCM fields in the list.
 
 ## Clip colors
 

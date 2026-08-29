@@ -44,8 +44,11 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
 1. Import **original** MP4 / MOV takes (not `.LRF` / `.XRF` / `.LRV` proxies).
 2. Select them in the Media Pool.
 3. **Workspace → Scripts → DJI Clip Color**.
-4. In list view, Customize Columns and add **Color Space Notes** or **Keywords**
-   (search `notes` or `keyword`). Clip color (orange / navy) shows without this.
+4. Show the **D-Log / D-Log2** text in the list: Media Pool **list view** →
+   Customize Columns → search **`notes`** or **`keyword`** (not `dji`) → add
+   **Color Space Notes** or **Keywords** → Save. There is no DJI Color column.
+   Clip color (orange / navy) shows without this. Full clicks:
+   [user guide](docs/user-guide.md#show-d-log--d-log2-in-the-media-pool-list).
 
 ## Input Color Space / Gamma
 
