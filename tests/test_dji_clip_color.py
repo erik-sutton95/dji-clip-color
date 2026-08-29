@@ -146,6 +146,11 @@ class FakeClip(object):
     def GetName(self):
         return self._props["Clip Name"]
 
+    def GetMetadata(self, key=None):
+        if key is None:
+            return dict(self.metadata)
+        return self.metadata.get(key, "")
+
     def GetClipProperty(self, key=None):
         if key is None:
             return dict(self._props)
@@ -184,6 +189,8 @@ class ProcessClipTests(unittest.TestCase):
         self.assertEqual(result.status, "stamped")
         self.assertEqual(result.label, "D-Log2")
         self.assertEqual(clip.third_party["DJI Color"], "D-Log2")
+        self.assertEqual(clip.metadata.get("Color Space Notes"), "D-Log2")
+        self.assertEqual(clip.metadata.get("Keywords"), "D-Log2")
         self.assertEqual(clip.clip_color, "Orange")
         self.assertEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut")
         self.assertEqual(clip.GetClipProperty("Input Gamma"), "Rec.709")

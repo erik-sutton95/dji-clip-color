@@ -205,12 +205,27 @@ def process_clip(clip, project=None):
 
 def apply_stamp(clip, plan, project=None):
     wrote = _write_third_party(clip, plan.metadata_key, plan.metadata_value)
+    wrote = _write_visible_label(clip, plan.metadata_value) or wrote
     if not wrote:
         wrote = _write_keywords(clip, plan.metadata_value)
     if plan.clip_color:
         _set_clip_property(clip, "Clip Color", plan.clip_color)
     apply_input_transform(clip, plan, project)
     return wrote
+
+
+def _write_visible_label(clip, label):
+    """Built-in fields that show up in Media Pool Customize Columns."""
+    ok = False
+    if _set_metadata(clip, "Color Space Notes", label):
+        ok = True
+    existing = _get_metadata(clip, "Keywords") or ""
+    parts = [part.strip() for part in existing.split(",") if part.strip()]
+    if label not in parts:
+        parts.append(label)
+        if _set_metadata(clip, "Keywords", ", ".join(parts)):
+            ok = True
+    return ok
 
 
 def apply_input_transform(clip, plan, project=None):
@@ -402,7 +417,7 @@ def format_report(report):
     lines.extend(
         [
             "",
-            "Look for the DJI Color column in the Media Pool (right-click a column header to show it).",
+            "Look for Color Space Notes or Keywords in Customize Columns (search notes / keyword — DJI Color is not a built-in column).",
             "Clip colors: Orange D-Log2 · Navy D-Log · Pink D-Log M · Teal HLG.",
             "Rec.709 is tagged in DJI Color only, so existing clip colors stay put.",
             "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → DJI D-Gamut + Rec.709; HLG → Rec.2020 + Rec.2100 HLG.",
@@ -508,10 +523,25 @@ def _write_third_party(clip, key, value):
 
 
 def _write_keywords(clip, value):
+    return _set_metadata(clip, "Keywords", value)
+
+
+def _set_metadata(clip, key, value):
     try:
-        return bool(clip.SetMetadata("Keywords", value))
+        return bool(clip.SetMetadata(key, value))
     except Exception:
         return False
+
+
+def _get_metadata(clip, key):
+    try:
+        getter = getattr(clip, "GetMetadata", None)
+        if not callable(getter):
+            return ""
+        value = getter(key)
+        return value if value else ""
+    except Exception:
+        return ""
 
 
 def _set_clip_property(clip, key, value):

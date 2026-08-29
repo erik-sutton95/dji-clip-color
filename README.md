@@ -44,7 +44,8 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
 1. Import **original** MP4 / MOV takes (not `.LRF` / `.XRF` / `.LRV` proxies).
 2. Select them in the Media Pool.
 3. **Workspace → Scripts → DJI Clip Color**.
-4. Right-click a column header and enable **DJI Color**.
+4. In list view, Customize Columns and add **Color Space Notes** or **Keywords**
+   (search `notes` or `keyword`). Clip color (orange / navy) shows without this.
 
 ## Input Color Space / Gamma
 

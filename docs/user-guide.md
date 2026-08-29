@@ -50,7 +50,9 @@ restart.
    even when the original is log.
 2. In the **Media Pool**, select the clips.
 3. **Workspace → Scripts → DJI Clip Color**.
-4. Right-click a Media Pool column header and enable **DJI Color**.
+4. In Media Pool **list view**, open Customize Columns and add **Color Space
+   Notes** or **Keywords** (search `notes` or `keyword`). There is no **DJI
+   Color** built-in column. Clip colors (orange / navy) show without this.
 
 A short report lists how many clips were D-Log2, D-Log, HLG, or Rec.709, and
 any skips.
