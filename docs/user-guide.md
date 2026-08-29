@@ -50,6 +50,8 @@ restart.
    even when the original is log.
 2. In the **Media Pool**, select the clips.
 3. **Workspace → Scripts → DJI Clip Color**.
+
+   ![Workspace Scripts menu](screenshots/02-scripts.png)
 4. Show the **D-Log / D-Log2** text next to clip colors (see below).
 
 A short report lists how many clips were D-Log2, D-Log, HLG, or Rec.709, and
@@ -73,6 +75,8 @@ The script writes the label to **Color Space Notes** and **Keywords**.
    - **Keywords** (same text, appended to any keywords you already had).
 5. Click **Save**.
 
+   ![Customize Columns](screenshots/03-columns.png)
+
 Run the script **before** you expect text in the column. Empty cells mean those
 clips have not been stamped yet. Select them and run **Workspace → Scripts →
 DJI Clip Color** again.
@@ -83,6 +87,8 @@ You can also add **Input Color Space** and **Input Gamma** the same way
 ## Clip colors
 
 ![Clip color legend](clip-colors.svg)
+
+![Bin and timeline clip colors](screenshots/06-colors.png)
 
 | Shot color | Clip color | Why |
 | --- | --- | --- |

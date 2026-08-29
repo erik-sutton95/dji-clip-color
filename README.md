@@ -1,5 +1,8 @@
 # DJI Clip Color
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/erik-sutton95/dji-clip-color/actions/workflows/test.yml/badge.svg)](https://github.com/erik-sutton95/dji-clip-color/actions/workflows/test.yml)
+
 **Show D-Log vs D-Log2 on DJI clips in DaVinci Resolve.**
 
 Resolve reads DJI takes as Rec.709 even when you shot log. The camera hides the
@@ -20,6 +23,8 @@ Select clips → run the script → the Media Pool shows **D-Log2**, **D-Log**,
 | Rec.709 | metadata only |
 
 Orange vs navy so a mixed bin is obvious at thumbnail size.
+
+![Media Pool list with Color Space Notes](docs/screenshots/04-pool.png)
 
 ## Install
 
@@ -72,9 +77,18 @@ Color only — we do not fake them as DJI D-Log.
 python3 dji_clip_color.py clip.MP4
 ```
 
+## Contributing
+
+PRs welcome. Tests: `python3 -m unittest discover -s tests -v`. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-Apache-2.0. Parser ported from
-[OpenPocketCine](https://github.com/erik-sutton95/OpenPocketCine) `ClipColorProfile`.
+Copyright 2026 Erik Sutton. Licensed under the
+[Apache License 2.0](LICENSE).
+
+Parser ported from
+[OpenPocketCine](https://github.com/erik-sutton95/OpenPocketCine) `ClipColorProfile`
+(Apache-2.0).
 
 If this saved you a bin-sort, [buy me a coffee](https://buymeacoffee.com/eriksutton) — optional, helps keep the lights on.
