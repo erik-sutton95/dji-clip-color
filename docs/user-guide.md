@@ -43,6 +43,9 @@ and opens that folder in Explorer.
 Restart Resolve if it was already running. The menu item only appears after a
 restart.
 
+Windows also needs a **64-bit Python 3** install or Resolve will not list `.py`
+scripts at all. See [Troubleshooting](#troubleshooting).
+
 ## First run
 
 1. Import the **original** camera files (`.MP4` / `.MOV` from `DCIM`).
@@ -139,6 +142,49 @@ Input Color Space / Gamma did not apply. Turn on Color Managed and run again.
 
 On Resolve 18 and older there is no custom-column API, so the DJI Color value
 is written to **Keywords** instead.
+
+## Troubleshooting
+
+### Workspace → Scripts does not show DJI Clip Color (Windows)
+
+The file can be in the right folder and still not appear. Resolve **hides `.py`
+scripts** unless it can start Python 3.
+
+1. **Workspace → Console**, then click **Py3** at the top.
+2. If it says Python is not installed / not found, install **64-bit Python 3.10
+   or 3.12** from [python.org](https://www.python.org/downloads/) — not the
+   Microsoft Store. Tick **Add python.exe to PATH**.
+3. Fully quit Resolve (system tray too) and reopen.
+4. Confirm the file is named exactly `DJI Clip Color.py` in:
+
+   `%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\`
+
+   Not `DJI Clip Color.py.txt` (Notepad does that if extensions are hidden).
+5. It should be **Workspace → Scripts → DJI Clip Color** (sometimes under a
+   Utility submenu). You do **not** need Studio or “External scripting = Local”
+   for this — that setting is only for scripts run from outside Resolve.
+6. Still missing? Copy the same file to the all-users folder and restart:
+
+   `%PROGRAMDATA%\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility\`
+
+A Windows username **with spaces** can also stop Fusion from scanning Scripts.
+
+### No Color Space Notes column
+
+There is no **DJI Color** field in Customize Columns. Search **`color space`**
+or **`notes`**, enable **Color Space Notes**. See
+[Show D-Log / D-Log2 in the Media Pool list](#show-d-log--d-log2-in-the-media-pool-list).
+
+### Input Gamma stays Rec.709 on D-Log
+
+Re-run the script on those clips. Resolve only accepts D-Log gamma if the script
+writes `DJI D-Gamut/D-Log` then turns on separate color space and gamma.
+
+### Resolve uses a huge amount of RAM when the script runs
+
+The script is tiny. It briefly switches the project to Color Managed so Input
+Color Space writes stick, which can make Resolve rebuild color for the whole
+timeline. Save first. If macOS pauses Resolve, force-quit and reopen.
 
 ## Uninstall
 

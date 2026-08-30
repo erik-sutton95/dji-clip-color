@@ -42,6 +42,11 @@ irm https://raw.githubusercontent.com/erik-sutton95/dji-clip-color/main/install.
 
 Restart Resolve if it is already open.
 
+**Windows:** Resolve will not list this script until **64-bit Python 3** is
+installed (python.org, add to PATH). If **Workspace → Scripts** is empty after
+a restart, see
+[Troubleshooting](docs/user-guide.md#troubleshooting).
+
 Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.md)**.
 
 ## Use
