@@ -270,21 +270,85 @@ class ProcessClipTests(unittest.TestCase):
         self.assertEqual(original, "davinciYRGB")
         self.assertEqual(seen, ["davinciYRGBColorManagedv2"])
         self.assertEqual(project.GetSetting("colorScienceMode"), "davinciYRGB")
-        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "1")
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "0")
+        self.assertEqual(
+            project.GetSetting("colorSpaceTimeline"), "DaVinci WG/Intermediate"
+        )
+        self.assertEqual(project.GetSetting("colorSpaceOutput"), "Rec.709 Gamma 2.4")
 
-    def test_write_with_color_management_leaves_managed_projects_alone(self):
+    def test_write_with_color_management_restores_after_d_log_separate_toggle(self):
+        project = FakeProject([])
+        clip_state = {}
+
+        def callback():
+            dji._set_project_setting(project, "separateColorSpaceAndGamma", "0")
+            dji._set_project_setting(project, "separateColorSpaceAndGamma", "1")
+            clip_state["separate_during"] = project.GetSetting(
+                "separateColorSpaceAndGamma"
+            )
+            clip_state["timeline_during"] = project.GetSetting("colorSpaceTimeline")
+            return "ok"
+
+        result, toggled, original = dji.write_with_color_management(project, callback)
+        self.assertEqual(result, "ok")
+        self.assertTrue(toggled)
+        self.assertEqual(original, "davinciYRGB")
+        self.assertEqual(clip_state["separate_during"], "1")
+        self.assertEqual(clip_state["timeline_during"], "DaVinci WG")
+        self.assertEqual(project.GetSetting("colorScienceMode"), "davinciYRGB")
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "0")
+        self.assertEqual(
+            project.GetSetting("colorSpaceTimeline"), "DaVinci WG/Intermediate"
+        )
+        self.assertEqual(project.GetSetting("colorSpaceTimelineGamma"), "")
+        self.assertEqual(project.GetSetting("colorSpaceOutput"), "Rec.709 Gamma 2.4")
+
+    def test_write_with_color_management_leaves_managed_projects_mode_alone(self):
         project = FakeProject([], science="davinciYRGBColorManagedv2")
         seen = []
 
         def callback():
             seen.append(project.GetSetting("colorScienceMode"))
+            dji._set_project_setting(project, "separateColorSpaceAndGamma", "1")
             return None
 
         result, toggled, original = dji.write_with_color_management(project, callback)
         self.assertFalse(toggled)
         self.assertEqual(seen, ["davinciYRGBColorManagedv2"])
         self.assertEqual(project.GetSetting("colorScienceMode"), "davinciYRGBColorManagedv2")
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "0")
+        self.assertEqual(
+            project.GetSetting("colorSpaceTimeline"), "DaVinci WG/Intermediate"
+        )
+
+    def test_write_with_color_management_keeps_original_separate_on(self):
+        project = FakeProject([], separate="1")
         self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "1")
+
+        def callback():
+            return None
+
+        dji.write_with_color_management(project, callback)
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "1")
+        self.assertEqual(project.GetSetting("colorSpaceTimeline"), "DaVinci WG")
+        self.assertEqual(project.GetSetting("colorSpaceTimelineGamma"), "DaVinci Intermediate")
+
+    def test_run_restores_project_color_management_after_d_log(self):
+        path = self._write("D-Log")
+        clip = FakeClip(path, name="log")
+        resolve = FakeResolve([clip])
+        project = resolve.GetProjectManager().GetCurrentProject()
+        report = dji.run(resolve)
+        self.assertIsNone(report.error)
+        self.assertEqual(report.stamped, 1)
+        self.assertEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut/D-Log")
+        self.assertEqual(clip.GetClipProperty("Input Gamma"), "DJI D-Log")
+        self.assertEqual(project.GetSetting("colorScienceMode"), "davinciYRGB")
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "0")
+        self.assertEqual(
+            project.GetSetting("colorSpaceTimeline"), "DaVinci WG/Intermediate"
+        )
+        self.assertEqual(project.GetSetting("colorSpaceOutput"), "Rec.709 Gamma 2.4")
 
     def test_format_report_lists_counts_and_skips(self):
         log2 = FakeClip(self._write("D-Log2"), name="a")
@@ -342,22 +406,64 @@ class FakePool(object):
 
 
 class FakeProject(object):
-    def __init__(self, clips, science="davinciYRGB"):
+    def __init__(self, clips, science="davinciYRGB", separate="0"):
         self._pool = FakePool(clips)
+        if str(separate) == "1":
+            timeline, timeline_gamma = "DaVinci WG", "DaVinci Intermediate"
+            output, output_gamma = "Rec.709", "Gamma 2.4"
+        else:
+            timeline, timeline_gamma = "DaVinci WG/Intermediate", ""
+            output, output_gamma = "Rec.709 Gamma 2.4", ""
         self.settings = {
             "colorScienceMode": science,
-            "separateColorSpaceAndGamma": "0",
+            "separateColorSpaceAndGamma": separate,
+            "isAutoColorManage": "0",
+            "rcmPresetMode": "Custom",
+            "colorSpaceTimeline": timeline,
+            "colorSpaceTimelineGamma": timeline_gamma,
+            "colorSpaceOutput": output,
+            "colorSpaceOutputGamma": output_gamma,
         }
 
     def GetMediaPool(self):
         return self._pool
 
-    def GetSetting(self, key):
+    def GetSetting(self, key=None):
+        if key is None or key == "":
+            return dict(self.settings)
         return self.settings.get(key, "")
 
     def SetSetting(self, key, value):
+        if key == "separateColorSpaceAndGamma":
+            self._apply_separate_toggle(value)
         self.settings[key] = value
         return True
+
+    def _apply_separate_toggle(self, value):
+        previous = str(self.settings.get("separateColorSpaceAndGamma") or "0")
+        wanted = str(value)
+        if wanted == previous:
+            return
+        pairs = (
+            ("colorSpaceTimeline", "colorSpaceTimelineGamma"),
+            ("colorSpaceOutput", "colorSpaceOutputGamma"),
+        )
+        if wanted == "1":
+            for space_key, gamma_key in pairs:
+                combined = self.settings.get(space_key) or ""
+                if "/" in combined and not self.settings.get(gamma_key):
+                    space, _gamma = combined.split("/", 1)
+                    self.settings[space_key] = space
+                    # Resolve often substitutes Rec.709 when splitting a
+                    # combined timeline, which is the leftover colorists saw.
+                    self.settings[gamma_key] = "Rec.709"
+        elif wanted == "0":
+            for space_key, gamma_key in pairs:
+                space = self.settings.get(space_key) or ""
+                gamma = self.settings.get(gamma_key) or ""
+                if gamma and "/" not in space:
+                    self.settings[space_key] = "%s/%s" % (space, gamma)
+                    self.settings[gamma_key] = ""
 
 
 class FakeProjectManager(object):

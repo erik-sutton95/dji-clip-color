@@ -347,14 +347,56 @@ def project_is_color_managed(resolve):
     return _mode_is_managed(_color_science_mode(current_project(resolve)))
 
 
+# Project Color Management keys the ICS write may mutate. Snapshot before
+# tagging, restore after. D-Log still needs a temporary separate-on write.
+_COLOR_MANAGEMENT_KEYS = (
+    "colorScienceMode",
+    "separateColorSpaceAndGamma",
+    "isAutoColorManage",
+    "rcmPresetMode",
+    "colorSpaceInput",
+    "colorSpaceInputGamma",
+    "colorSpaceTimeline",
+    "colorSpaceTimelineGamma",
+    "colorSpaceOutput",
+    "colorSpaceOutputGamma",
+    "useCATransform",
+    "inputDRT",
+    "outputDRT",
+    "disableFusionToneMapping",
+)
+
+# Science / auto / separate first so timeline and output strings apply in
+# the original mode. A second restore pass covers Resolve rewriting them
+# when the separate checkbox flips.
+_COLOR_MANAGEMENT_RESTORE_ORDER = (
+    "colorScienceMode",
+    "isAutoColorManage",
+    "rcmPresetMode",
+    "separateColorSpaceAndGamma",
+    "colorSpaceInput",
+    "colorSpaceInputGamma",
+    "colorSpaceTimeline",
+    "colorSpaceTimelineGamma",
+    "colorSpaceOutput",
+    "colorSpaceOutputGamma",
+    "useCATransform",
+    "inputDRT",
+    "outputDRT",
+    "disableFusionToneMapping",
+)
+
+
 def write_with_color_management(project, callback):
     """Input Color Space / Gamma can only be written while Color Managed is on.
 
-    Flip YRGB → Color Managed for the write, then restore. D-Log gamma is
-    applied by writing the combined IDT with separateColorSpaceAndGamma off,
-    then turning separate on. Separate stays on.
+    Flip YRGB → Color Managed for the write, then restore Color Science and
+    the rest of project Color Management. D-Log gamma is applied by writing
+    the combined IDT with separateColorSpaceAndGamma off, then turning
+    separate on for the gamma write. That checkbox is restored afterward.
     """
-    original = _color_science_mode(project)
+    snapshot = _snapshot_color_management(project)
+    original = snapshot.get("colorScienceMode") or _color_science_mode(project)
     toggled = False
     setter = getattr(project, "SetSetting", None) if project is not None else None
     if callable(setter) and original and not _mode_is_managed(original):
@@ -365,18 +407,80 @@ def write_with_color_management(project, callback):
             toggled = False
     try:
         result = callback()
-        if callable(setter):
-            try:
-                setter("separateColorSpaceAndGamma", "1")
-            except Exception:
-                pass
         return result, toggled, original
     finally:
-        if toggled:
-            try:
-                project.SetSetting("colorScienceMode", original)
-            except Exception:
-                pass
+        _restore_color_management(project, snapshot)
+
+
+def _snapshot_color_management(project):
+    if project is None:
+        return {}
+    getter = getattr(project, "GetSetting", None)
+    if not callable(getter):
+        return {}
+    snapshot = {}
+    dumped = None
+    for args in ((), (None,), ("",)):
+        try:
+            dumped = getter(*args)
+        except TypeError:
+            continue
+        except Exception:
+            dumped = None
+            break
+        else:
+            break
+    if isinstance(dumped, dict):
+        for key, value in dumped.items():
+            if _is_color_management_key(key):
+                snapshot[key] = value
+        return snapshot
+    for key in _COLOR_MANAGEMENT_KEYS:
+        try:
+            snapshot[key] = getter(key)
+        except Exception:
+            continue
+    return snapshot
+
+
+def _is_color_management_key(key):
+    if key in _COLOR_MANAGEMENT_KEYS:
+        return True
+    lowered = str(key or "").lower()
+    needles = (
+        "colorscience",
+        "colorspace",
+        "colormanag",
+        "separatecolor",
+        "autocolor",
+        "rcm",
+        "aces",
+        "inputdrt",
+        "outputdrt",
+        "catransform",
+        "fusiontonemapping",
+    )
+    for needle in needles:
+        if needle in lowered:
+            return True
+    return False
+
+
+def _restore_color_management(project, snapshot):
+    if project is None or not snapshot:
+        return
+    ordered = list(_COLOR_MANAGEMENT_RESTORE_ORDER)
+    extras = [key for key in snapshot if key not in ordered]
+    extras.sort()
+    keys = ordered + extras
+    for _ in (0, 1):
+        for key in keys:
+            if key not in snapshot:
+                continue
+            value = snapshot[key]
+            if _get_project_setting(project, key) == value:
+                continue
+            _set_project_setting(project, key, value)
 
 
 def _color_science_mode(project):
@@ -433,7 +537,7 @@ def format_report(report):
         )
     if report.color_managed is False:
         lines.append(
-            "Project is DaVinci YRGB. Input Color Space was written by briefly switching to Color Managed, then restoring YRGB."
+            "Project is DaVinci YRGB. Input Color Space was written by briefly switching to Color Managed; project Color Management is restored afterward."
         )
     return "\n".join(lines)
 
@@ -549,6 +653,19 @@ def _set_clip_property(clip, key, value):
         return bool(clip.SetClipProperty(key, value))
     except Exception:
         return False
+
+
+def _get_project_setting(project, key):
+    if project is None:
+        return ""
+    try:
+        getter = getattr(project, "GetSetting", None)
+        if not callable(getter):
+            return ""
+        value = getter(key)
+        return "" if value is None else value
+    except Exception:
+        return ""
 
 
 def _set_project_setting(project, key, value):

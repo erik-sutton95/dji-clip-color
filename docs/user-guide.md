@@ -121,17 +121,13 @@ Color Managed** projects.
 
 A **node-based** color-management workflow (CST on the first node of every
 clip) does not need those clip tags. You can still run the script for clip
-color and Color Space Notes; afterward, check **File → Project Settings →
-Color Management** and restore your setup if it moved.
+color and Color Space Notes.
 
 Resolve only accepts clip Input Color Space writes while Color Science is
-Color Managed. The script may briefly switch to Color Managed, turn on
-**Use separate color space and gamma**, and leave that checkbox on — including
-on node-based YRGB projects. Timeline or output gamma can change with it
-(for example DaVinci WG/Intermediate becoming DaVinci WG + Rec.709). Automatic
-color management can split **Output color space** from a single **SDR Rec.709**
-into separate space and gamma menus. Put the project back how you had it —
-clip labels stay.
+Color Managed. The script may briefly switch to Color Managed and turn on
+**Use separate color space and gamma** (needed so D-Log gamma sticks), then
+**restores project Color Management** — Color Science, the separate checkbox,
+timeline/output color space, and Automatic color management. Clip labels stay.
 
 | Shot color | Input Color Space | Input Gamma |
 | --- | --- | --- |
@@ -185,11 +181,9 @@ or **`notes`**, enable **Color Space Notes**. See
 
 ### Project Color Management looks different after the script
 
-Expected. The script sets Input Color Space on each selected clip. Resolve only
-accepts that write while Color Science is Color Managed, and it can leave
-**Use separate color space and gamma** on. Timeline or output gamma can shift
-with it. Open **File → Project Settings → Color Management** and restore your
-setup. Clip colors, Color Space Notes, and grades stay.
+The script restores project Color Management after tagging clips. If a setting
+still looks off, open **File → Project Settings → Color Management** and put
+it back. Clip colors, Color Space Notes, and grades stay.
 
 ### Input Gamma stays Rec.709 on D-Log
 

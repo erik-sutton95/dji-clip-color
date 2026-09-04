@@ -59,9 +59,6 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
    **Color Space Notes** or **Keywords** → Save. There is no DJI Color column.
    Clip color (orange / navy) shows without this. Full clicks:
    [user guide](docs/user-guide.md#show-d-log--d-log2-in-the-media-pool-list).
-5. After the run, glance at **File → Project Settings → Color Management**
-   and put it back if it moved. Tagging Input Color Space on the clips can
-   change the project setup (see below).
 
 ## Input Color Space / Gamma
 
@@ -71,15 +68,10 @@ Managed needs. A **node-based** workflow (CST on the first node) does not need
 those clip tags — you already define the space in the node tree.
 
 Resolve only accepts those clip writes while Color Science is Color Managed, so
-the script may **change your project Color Management**. Typical leftovers:
-
-- **Use separate color space and gamma** turns on (node-based YRGB included).
-- Timeline gamma can split, e.g. DaVinci WG/Intermediate → DaVinci WG + Rec.709.
-- Automatic color management can split **Output color space** into two menus.
-
-After you run it, open **File → Project Settings → Color Management** and put
-the project back how you like it. Clip colors, Color Space Notes, and grades
-stay.
+the script may briefly switch Color Science and **Use separate color space and
+gamma**, then **restores your project Color Management**. Clip colors, Color
+Space Notes, and grades stay. If a setting still looks off, put it back in
+**File → Project Settings → Color Management**.
 
 | Shot color | Input Color Space | Input Gamma |
 | --- | --- | --- |
