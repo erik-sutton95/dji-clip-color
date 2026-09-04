@@ -59,22 +59,39 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
    **Color Space Notes** or **Keywords** → Save. There is no DJI Color column.
    Clip color (orange / navy) shows without this. Full clicks:
    [user guide](docs/user-guide.md#show-d-log--d-log2-in-the-media-pool-list).
+5. After the run, glance at **File → Project Settings → Color Management**
+   and put it back if it moved. Tagging Input Color Space on the clips can
+   change the project setup (see below).
 
 ## Input Color Space / Gamma
 
-The script also writes Resolve’s clip Input Color Space and Input Gamma when
-the project is **DaVinci YRGB Color Managed** (otherwise the API silently
-refuses):
+The script sets **Input Color Space** (and Input Gamma where Resolve has one)
+on every selected clip to the matching DJI option. That is what Resolve Color
+Managed needs. A **node-based** workflow (CST on the first node) does not need
+those clip tags — you already define the space in the node tree.
+
+Resolve only accepts those clip writes while Color Science is Color Managed, so
+the script may **change your project Color Management**. Typical leftovers:
+
+- **Use separate color space and gamma** turns on (node-based YRGB included).
+- Timeline gamma can split, e.g. DaVinci WG/Intermediate → DaVinci WG + Rec.709.
+- Automatic color management can split **Output color space** into two menus.
+
+After you run it, open **File → Project Settings → Color Management** and put
+the project back how you like it. Clip colors, Color Space Notes, and grades
+stay.
 
 | Shot color | Input Color Space | Input Gamma |
 | --- | --- | --- |
 | D-Log | DJI D-Gamut | DJI D-Log |
 | Rec.2100 HLG | Rec.2020 | Rec.2100 HLG |
-| Rec.709 / D-Log M | Rec.709 | Rec.709 |
+| Rec.709 | Rec.709 | Rec.709 |
+| D-Log M | Rec.709 | Rec.709 |
 | D-Log2 | DJI D-Gamut | Rec.709 |
 
-Resolve 21 still has **no D-Log2 CST**. Those clips are labeled Orange / DJI
-Color only — we do not fake them as DJI D-Log.
+Resolve has **no official profile for D-Log2 or D-Log M** (DJI has not
+published a white paper for either). D-Log2 is tagged D-Gamut + Rec.709 gamma,
+not DJI D-Log. D-Log M is tagged Rec.709. Use a LUT for those.
 
 ## Probe a file
 

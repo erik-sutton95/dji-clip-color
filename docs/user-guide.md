@@ -115,11 +115,23 @@ thumbnail size.
 
 ## Input Color Space / Gamma
 
-The script also sets each clip’s Input Color Space and Input Gamma (same as
-right-click → Input Color Space in the Media Pool). Resolve only accepts that
-write while Color Science is Color Managed. If the project is plain DaVinci
-YRGB, the script flips Color Managed on for the write, then restores YRGB —
-the Input Color Space value stays.
+The script sets each clip’s Input Color Space and Input Gamma (same as
+right-click → Input Color Space in the Media Pool). That is for **Resolve
+Color Managed** projects.
+
+A **node-based** color-management workflow (CST on the first node of every
+clip) does not need those clip tags. You can still run the script for clip
+color and Color Space Notes; afterward, check **File → Project Settings →
+Color Management** and restore your setup if it moved.
+
+Resolve only accepts clip Input Color Space writes while Color Science is
+Color Managed. The script may briefly switch to Color Managed, turn on
+**Use separate color space and gamma**, and leave that checkbox on — including
+on node-based YRGB projects. Timeline or output gamma can change with it
+(for example DaVinci WG/Intermediate becoming DaVinci WG + Rec.709). Automatic
+color management can split **Output color space** from a single **SDR Rec.709**
+into separate space and gamma menus. Put the project back how you had it —
+clip labels stay.
 
 | Shot color | Input Color Space | Input Gamma |
 | --- | --- | --- |
@@ -129,16 +141,12 @@ the Input Color Space value stays.
 | D-Log M | Rec.709 | Rec.709 |
 | D-Log2 | DJI D-Gamut | Rec.709 |
 
-**D-Log2:** Resolve 21 has no D-Log2 gamma. Color space is **DJI D-Gamut**;
-gamma stays **Rec.709** (not DJI D-Log). They stay orange in the bin so you
-can drop a D-Log2 LUT. The inspector may still print Input Color Space as
-`DJI D-Gamut/D-Log` — that is Resolve’s IDT name; check Input Gamma to tell
-D-Log (`DJI D-Log`) from D-Log2 (`Rec.709`).
-
-**D-Log M** is not DJI D-Log. It is tagged Rec.709.
-
-If the project is still DaVinci YRGB (unmanaged), the report will warn that
-Input Color Space / Gamma did not apply. Turn on Color Managed and run again.
+**D-Log2 and D-Log M:** Resolve has no official profile for either. DJI has
+not published a white paper. D-Log2 is tagged **DJI D-Gamut** + **Rec.709**
+gamma (not DJI D-Log). D-Log M is tagged Rec.709. Use a LUT. The inspector
+may still print Input Color Space as `DJI D-Gamut/D-Log` — that is Resolve’s
+IDT name; check Input Gamma to tell D-Log (`DJI D-Log`) from D-Log2
+(`Rec.709`).
 
 On Resolve 18 and older there is no custom-column API, so the DJI Color value
 is written to **Keywords** instead.
@@ -174,6 +182,14 @@ A Windows username **with spaces** can also stop Fusion from scanning Scripts.
 There is no **DJI Color** field in Customize Columns. Search **`color space`**
 or **`notes`**, enable **Color Space Notes**. See
 [Show D-Log / D-Log2 in the Media Pool list](#show-d-log--d-log2-in-the-media-pool-list).
+
+### Project Color Management looks different after the script
+
+Expected. The script sets Input Color Space on each selected clip. Resolve only
+accepts that write while Color Science is Color Managed, and it can leave
+**Use separate color space and gamma** on. Timeline or output gamma can shift
+with it. Open **File → Project Settings → Color Management** and restore your
+setup. Clip colors, Color Space Notes, and grades stay.
 
 ### Input Gamma stays Rec.709 on D-Log
 
