@@ -60,6 +60,12 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
    Clip color (orange / navy) shows without this. Full clicks:
    [user guide](docs/user-guide.md#show-d-log--d-log2-in-the-media-pool-list).
 
+**Osmo Pocket 3:** the camera does **not** write that Keys field, even on
+original `.MP4` takes (D-Log M, Rec.709, HLG). The script will skip them
+(`no ColorGammaSxS`). Pocket 4 / 4P originals do write it. Rec.709 never
+gets a clip color — only Color Space Notes — so a 4P Rec.709 stamp can
+still look empty if that column is off.
+
 ## Input Color Space / Gamma
 
 The script sets **Input Color Space** (and Input Gamma where Resolve has one)

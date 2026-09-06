@@ -60,6 +60,12 @@ scripts at all. See [Troubleshooting](#troubleshooting).
 A short report lists how many clips were D-Log2, D-Log, HLG, or Rec.709, and
 any skips.
 
+**Osmo Pocket 3** originals do not include the Keys field this script reads.
+Those clips skip with `no ColorGammaSxS` even when you shot D-Log M, Rec.709,
+or HLG. Pocket 4 / 4P originals do write it. Rec.709 never gets a clip color
+(notes only), so a successful Rec.709 stamp can still look like nothing if
+Color Space Notes is hidden.
+
 ## Show D-Log / D-Log2 in the Media Pool list
 
 Clip color (orange / navy) is enough to spot log at a glance. For the actual
@@ -110,7 +116,7 @@ thumbnail size.
 | --- | --- |
 | proxy sidecar | Import the original `.MP4` / `.MOV`, not the LRF/XRF |
 | file not found | Relink the media; the script reads the file on disk |
-| no ColorGammaSxS | Use the camera original. Some Mimo “share” exports strip Keys |
+| no ColorGammaSxS | The file has no `com.dji.camera.ColorGammaSxS` Keys field. Use the camera original, not a Mimo “share” export. **Osmo Pocket 3** originals never write this field (D-Log M / Rec.709 / HLG included) — Pocket 4 / 4P do. Probe with `python3 dji_clip_color.py clip.MP4`. |
 | Select clips… | Highlight clips in the Media Pool, then run the script again |
 
 ## Input Color Space / Gamma
@@ -171,6 +177,23 @@ scripts** unless it can start Python 3.
    `%PROGRAMDATA%\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility\`
 
 A Windows username **with spaces** can also stop Fusion from scanning Scripts.
+
+### Script does nothing / no ColorGammaSxS
+
+The popup should say **Skipped** and why.
+
+**Osmo Pocket 3** (and some share exports) never write
+`com.dji.camera.ColorGammaSxS`. The script cannot invent D-Log M / HLG / Rec.709
+from those files. Pocket 4 / 4P camera originals do write the field.
+
+Confirm with:
+
+```bash
+python3 dji_clip_color.py clip.MP4
+```
+
+`no ColorGammaSxS` means the tag is not in the file. Rec.709 that *does* stamp
+still has no clip color — turn on **Color Space Notes**.
 
 ### No Color Space Notes column
 
