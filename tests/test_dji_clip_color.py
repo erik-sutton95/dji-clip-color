@@ -92,8 +92,8 @@ class StampPlanTests(unittest.TestCase):
         self.assertEqual(plan.metadata_key, "DJI Color")
         self.assertEqual(plan.metadata_value, "D-Log2")
         self.assertEqual(plan.clip_color, "Orange")
-        self.assertEqual(plan.input_color_space, "DJI D-Gamut")
-        self.assertEqual(plan.input_gamma, "Rec.709")
+        self.assertEqual(plan.input_color_space, "Same as Timeline")
+        self.assertIsNone(plan.input_gamma)
 
     def test_d_log_is_navy_d_log_m_pink_hlg_teal(self):
         self.assertEqual(dji.stamp_plan("D-Log").clip_color, "Navy")
@@ -129,9 +129,11 @@ class StampPlanTests(unittest.TestCase):
 
     def test_d_log2_does_not_pretend_to_be_d_log(self):
         plan = dji.stamp_plan("D-Log2")
-        self.assertEqual(plan.input_color_space, "DJI D-Gamut")
-        self.assertEqual(plan.input_gamma, "Rec.709")
-        self.assertNotEqual(plan.input_gamma, "DJI D-Log")
+        self.assertEqual(plan.input_combined, "Same as Timeline")
+        self.assertEqual(plan.input_color_space, "Same as Timeline")
+        self.assertIsNone(plan.input_gamma)
+        self.assertNotEqual(plan.input_color_space, "DJI D-Gamut")
+        self.assertNotEqual(plan.input_combined, "DJI D-Gamut/D-Log")
         self.assertIn("D-Log2", plan.input_note)
 
 
@@ -192,8 +194,9 @@ class ProcessClipTests(unittest.TestCase):
         self.assertEqual(clip.metadata.get("Color Space Notes"), "D-Log2")
         self.assertEqual(clip.metadata.get("Keywords"), "D-Log2")
         self.assertEqual(clip.clip_color, "Orange")
-        self.assertEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut")
-        self.assertEqual(clip.GetClipProperty("Input Gamma"), "Rec.709")
+        self.assertEqual(clip.GetClipProperty("Input Color Space"), "Same as Timeline")
+        self.assertEqual(clip.GetClipProperty("Input Gamma"), "")
+        self.assertNotEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut/D-Log")
 
     def test_d_log_sets_input_color_space_and_gamma(self):
         path = self._write("D-Log")
@@ -355,10 +358,21 @@ class ProcessClipTests(unittest.TestCase):
         proxy = FakeClip(self._write("Rec.709", suffix=".LRF"), name="b")
         text = dji.format_report(dji.process_clips([log2, proxy]))
         self.assertIn("D-Log2", text)
+        self.assertIn("Same as Timeline", text)
         self.assertIn("proxy", text.lower())
         self.assertIn("DJI Color", text)
         self.assertIn("Orange", text)
         self.assertIn("Navy", text)
+
+    def test_d_log2_overwrites_a_previous_d_log_idt(self):
+        path = self._write("D-Log2")
+        clip = FakeClip(path, name="was-dlog")
+        clip.SetClipProperty("Input Color Space", "DJI D-Gamut/D-Log")
+        clip.SetClipProperty("Input Gamma", "DJI D-Log")
+        result = dji.process_clip(clip, FakeProject([]))
+        self.assertEqual(result.status, "stamped")
+        self.assertEqual(clip.GetClipProperty("Input Color Space"), "Same as Timeline")
+        self.assertNotEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut/D-Log")
 
 
 @unittest.skipUnless(

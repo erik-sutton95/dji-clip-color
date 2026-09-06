@@ -79,11 +79,12 @@ Space Notes, and grades stay. If a setting still looks off, put it back in
 | Rec.2100 HLG | Rec.2020 | Rec.2100 HLG |
 | Rec.709 | Rec.709 | Rec.709 |
 | D-Log M | Rec.709 | Rec.709 |
-| D-Log2 | DJI D-Gamut | Rec.709 |
+| D-Log2 | Same as Timeline | — |
 
 Resolve has **no official profile for D-Log2 or D-Log M** (DJI has not
-published a white paper for either). D-Log2 is tagged D-Gamut + Rec.709 gamma,
-not DJI D-Log. D-Log M is tagged Rec.709. Use a LUT for those.
+published a white paper for either). D-Log2 is **Same as Timeline**, not DJI
+D-Log — tagging it D-Gamut still shows as D-Log in Resolve. D-Log M is tagged
+Rec.709. Use a LUT or a CST for those.
 
 ## Probe a file
 

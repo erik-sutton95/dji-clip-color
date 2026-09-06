@@ -31,6 +31,7 @@ CLIP_COLORS = {
 # Resolve 21.0.4 ships DJI D-Gamut + DJI D-Log only. There is no D-Log2 CST.
 # Combined string is for projects with a single Input Color Space menu;
 # separate gamut/gamma is for "Use Separate Color Space and Gamma".
+# D-Log2 must not use DJI D-Gamut — Resolve still labels that IDT as D-Log.
 INPUT_TRANSFORMS = {
     "D-Log": {
         "combined": "DJI D-Gamut/D-Log",
@@ -57,12 +58,22 @@ INPUT_TRANSFORMS = {
         "note": "D-Log M has no Resolve CST — tagged Rec.709, not DJI D-Log",
     },
     "D-Log2": {
-        "combined": "DJI D-Gamut",
-        "color_space": "DJI D-Gamut",
-        "gamma": "Rec.709",
-        "note": "Resolve has no D-Log2 CST — D-Gamut color space, Rec.709 gamma (not DJI D-Log)",
+        "combined": "Same as Timeline",
+        "color_space": "Same as Timeline",
+        "gamma": None,
+        "note": "Resolve has no D-Log2 CST — Same as Timeline, not DJI D-Log",
     },
 }
+
+# Resolve has no D-Log2 IDT. "DJI D-Gamut" still displays as DJI D-Gamut/D-Log.
+# Prefer Same as Timeline (combined menu, separate off). Do not fake D-Log.
+_PASSTHROUGH_ICS = (
+    "Same as Timeline",
+    "Same as Timeline Settings",
+    "Same as Project",
+    "Bypass",
+    "Bypass Color Management",
+)
 
 _PROXY_EXT = frozenset((".lrf", ".lrv", ".xrf"))
 
@@ -234,6 +245,9 @@ def apply_input_transform(clip, plan, project=None):
     DJI D-Log gamma only sticks if we write the combined IDT
     ``DJI D-Gamut/D-Log`` while separateColorSpaceAndGamma is off, then
     turn separate on. A direct Input Gamma write is ignored (Resolve 21).
+
+    D-Log2 has no Resolve profile. Do not write DJI D-Log; set Same as
+    Timeline (or Bypass) instead.
     """
     if not plan.input_color_space and not plan.input_gamma and not plan.input_combined:
         return None
@@ -243,6 +257,8 @@ def apply_input_transform(clip, plan, project=None):
         _set_project_setting(project, "separateColorSpaceAndGamma", "1")
         _set_clip_property(clip, "Input Gamma", plan.input_gamma)
         return plan.input_combined if ok else None
+    if _is_passthrough_input(plan):
+        return _apply_passthrough_input(clip, plan, project)
     ok_cs = False
     if plan.input_color_space:
         ok_cs = _set_clip_property(clip, "Input Color Space", plan.input_color_space)
@@ -252,6 +268,27 @@ def apply_input_transform(clip, plan, project=None):
         _set_clip_property(clip, "Input Gamma", plan.input_gamma)
     if ok_cs:
         return plan.input_color_space or plan.input_combined
+    return None
+
+
+def _is_passthrough_input(plan):
+    value = plan.input_combined or plan.input_color_space
+    return value in _PASSTHROUGH_ICS
+
+
+def _apply_passthrough_input(clip, plan, project):
+    candidates = []
+    for value in (plan.input_combined, plan.input_color_space) + _PASSTHROUGH_ICS:
+        if value and value not in candidates:
+            candidates.append(value)
+    _set_project_setting(project, "separateColorSpaceAndGamma", "0")
+    for value in candidates:
+        if _set_clip_property(clip, "Input Color Space", value):
+            return value
+    _set_project_setting(project, "separateColorSpaceAndGamma", "1")
+    for value in candidates:
+        if _set_clip_property(clip, "Input Color Space", value):
+            return value
     return None
 
 
@@ -524,12 +561,12 @@ def format_report(report):
             "Look for Color Space Notes or Keywords in Customize Columns (search notes / keyword — DJI Color is not a built-in column).",
             "Clip colors: Orange D-Log2 · Navy D-Log · Pink D-Log M · Teal HLG.",
             "Rec.709 is tagged in DJI Color only, so existing clip colors stay put.",
-            "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → DJI D-Gamut + Rec.709; HLG → Rec.2020 + Rec.2100 HLG.",
+            "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → Same as Timeline (not DJI D-Log); HLG → Rec.2020 + Rec.2100 HLG.",
         ]
     )
     if report.counts.get("D-Log2"):
         lines.append(
-            "D-Log2: D-Gamut color space, Rec.709 gamma (Resolve has no D-Log2 CST)."
+            "D-Log2: Input Color Space set to Same as Timeline (Resolve has no D-Log2 CST — not tagged as DJI D-Log)."
         )
     if report.counts.get("D-Log M"):
         lines.append(
