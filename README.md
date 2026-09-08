@@ -3,6 +3,10 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/erik-sutton95/dji-clip-color/actions/workflows/test.yml/badge.svg)](https://github.com/erik-sutton95/dji-clip-color/actions/workflows/test.yml)
 
+![Before and after: D-Log2, D-Log, D-Log M, and HLG clip colors in the Media Pool](docs/screenshots/banner.png)
+
+Banner by [u/NefariousnessJaded87](https://www.reddit.com/user/NefariousnessJaded87/).
+
 **Show D-Log vs D-Log2 on DJI clips in DaVinci Resolve.**
 
 Resolve reads DJI takes as Rec.709 even when you shot log. The camera hides the
