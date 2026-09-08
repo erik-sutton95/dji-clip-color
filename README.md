@@ -14,7 +14,8 @@ real profile in a Keys field (`com.dji.camera.ColorGammaSxS` /
 `DjiCameraColorGammaSxS`) that Resolve never maps.
 
 Select clips → run the script → the Media Pool shows **D-Log2**, **D-Log**,
-**D-Log M**, **HLG**, or **Rec.709**. Log clips also get a clip color.
+**D-Log M**, **HLG**, or **Rec.709**. Log clips also get a clip color. When the file includes a camera model, the
+script imports it into Resolve’s **Camera Type** metadata field.
 
 ![Clip color legend](docs/clip-colors.svg)
 
@@ -64,9 +65,13 @@ Step-by-step, skipped-clip table, and uninstall: **[user guide](docs/user-guide.
    Clip color (orange / navy) shows without this. Full clicks:
    [user guide](docs/user-guide.md#show-d-log--d-log2-in-the-media-pool-list).
 
+To see the source camera beside the color profile, add **Camera Type** in
+Customize Columns (search `camera`). This helps you choose a camera-specific
+D-Log M IDT; the script does not choose or apply a DCTL.
+
 **Osmo Pocket 3:** the camera does **not** write that Keys field, even on
-original `.MP4` takes (D-Log M, Rec.709, HLG). The script will skip them
-(`no ColorGammaSxS`). Pocket 4 / 4P originals do write it. Rec.709 never
+original `.MP4` takes (D-Log M, Rec.709, HLG). Color tagging is skipped
+(`no ColorGammaSxS`), but camera metadata is imported if present. Pocket 4 / 4P originals do write it. Rec.709 never
 gets a clip color — only Color Space Notes — so a 4P Rec.709 stamp can
 still look empty if that column is off.
 
@@ -103,6 +108,12 @@ tagged Rec.709. Use a LUT or a CST for D-Log M.
 ```bash
 python3 dji_clip_color.py clip.MP4
 ```
+
+The probe prints the color profile and camera model, or states which metadata
+is missing. Camera models are read directly from DJI `©mdl` UserData and
+`com.dji.camera.CameraModel` / `com.apple.quicktime.model` Keys metadata in the file’s last 2 MiB. No
+MediaInfo or ExifTool installation is required. Missing camera metadata leaves
+any existing Camera Type unchanged; present metadata replaces it.
 
 ## Contributing
 

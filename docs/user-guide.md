@@ -4,7 +4,8 @@ DaVinci Resolve does not show whether a DJI take is Rec.709, D-Log, or D-Log2.
 The camera writes Rec.709 into the standard color box even when you shot log.
 The real profile lives in a DJI Keys field Resolve never maps.
 
-This script reads that field and stamps it onto the clips you select.
+This script reads that field and stamps it onto the clips you select. It also
+imports the source camera model into **Camera Type** when present.
 
 ## Install
 
@@ -61,8 +62,8 @@ A short report lists how many clips were D-Log2, D-Log, HLG, or Rec.709, and
 any skips.
 
 **Osmo Pocket 3** originals do not include the Keys field this script reads.
-Those clips skip with `no ColorGammaSxS` even when you shot D-Log M, Rec.709,
-or HLG. Pocket 4 / 4P originals do write it. Rec.709 never gets a clip color
+Color tagging skips with `no ColorGammaSxS` even when you shot D-Log M, Rec.709,
+or HLG. Camera metadata can still be imported when present. Pocket 4 / 4P originals do write it. Rec.709 never gets a clip color
 (notes only), so a successful Rec.709 stamp can still look like nothing if
 Color Space Notes is hidden.
 
@@ -92,6 +93,23 @@ DJI Clip Color** again.
 
 You can also add **Input Color Space** and **Input Gamma** the same way
 (search `input`) if you want the RCM fields in the list.
+
+## Show the source camera
+
+In Media Pool list view, open **Customize Columns**, search `camera`, add
+**Camera Type**, and Save. Run the script on the selected original clips.
+The model can help you choose the correct camera-specific D-Log M IDT; the
+script does not select or apply a DCTL.
+
+The script reads DJI `©mdl` UserData and `com.apple.quicktime.model` Keys
+metadata from the last 2 MiB of the source file without external tools. It
+copies the model as recorded, without guessing a marketing name. Present
+metadata replaces Camera Type; missing or empty metadata leaves it unchanged.
+Models stored elsewhere in a file are not currently supported.
+
+Camera import works even when ColorGammaSxS is missing or unrecognized. Those
+clips are reported as **camera metadata only**, with no color or input-transform
+changes. The report lists imported models and any refused metadata writes.
 
 ## Clip colors
 
@@ -235,10 +253,12 @@ python3 dji_clip_color.py "/path/to/clip.MP4"
 ```
 
 ```
-clip.MP4    D-Log2
+clip.MP4    D-Log2    Osmo Pocket 4
 ```
 
-That is the same tag ExifTool prints as `Keys:DjiCameraColorGammaSxS`.
+The second column is the same tag ExifTool prints as
+`Keys:DjiCameraColorGammaSxS`. The third is the camera model, or
+`no camera model` when unavailable.
 
 ---
 

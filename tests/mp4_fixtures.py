@@ -20,7 +20,7 @@ def box(type_or_fourcc, payload):
     if isinstance(type_or_fourcc, int):
         type_bytes = u32(type_or_fourcc)
     else:
-        type_bytes = type_or_fourcc.encode("ascii")
+        type_bytes = type_or_fourcc.encode("latin-1")
         if len(type_bytes) != 4:
             raise ValueError("fourcc must be 4 bytes, got %r" % (type_or_fourcc,))
     return u32(8 + len(payload)) + type_bytes + payload
@@ -44,3 +44,11 @@ def color_gamma_mp4(gamma, pad_mdat=0, pad_before_meta=0):
         chunks.append(box("mdat", b"\xab" * pad_mdat))
     chunks.append(moov)
     return b"".join(chunks)
+
+
+def camera_mp4(model, gamma=None):
+    # DJI's non-standard UserData model atom contains a plain string.
+    metadata = box("udta", box("\xa9mdl", model.encode("utf-8") + b"\x00"))
+    if gamma is not None:
+        metadata += color_gamma_mp4(gamma)[16 + 8:]
+    return box("ftyp", b"isomisom") + box("moov", metadata)

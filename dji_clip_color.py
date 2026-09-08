@@ -1,4 +1,4 @@
-"""Read DJI shot color from QuickTime Keys Resolve does not import.
+"""Read DJI shot color and source camera metadata Resolve does not import.
 
 DJI writes Rec.709 in colr/nclx even for D-Log / D-Log2. The real profile is
 QuickTime Keys ``com.dji.camera.ColorGammaSxS`` in the moov tail.
@@ -15,6 +15,9 @@ import struct
 import sys
 
 GAMMA_KEY = "com.dji.camera.ColorGammaSxS"
+MODEL_KEY = "com.apple.quicktime.model"
+DJI_MODEL_KEY = "com.dji.camera.CameraModel"
+DJI_MODEL_ATOM = "\xa9mdl"
 FILE_TAIL_BYTES = 2 * 1024 * 1024
 METADATA_KEY = "DJI Color"
 
@@ -137,6 +140,14 @@ def color_label(data):
 
 def gamma_from_mp4(data):
     return keys_from_mp4(data).get(GAMMA_KEY)
+
+
+def camera_model(metadata):
+    for key in (DJI_MODEL_KEY, MODEL_KEY, DJI_MODEL_ATOM):
+        value = (metadata.get(key) or "").strip("\x00 \t\r\n")
+        if value and "\ufffd" not in value and not any(ord(c) < 32 for c in value):
+            return value
+    return None
 
 
 def shot_color(data, path):
@@ -289,19 +300,23 @@ def process_clip(clip, project=None, resolve_version=None):
         )
     if not os.path.isfile(path):
         return ClipResult(name, path, None, "skipped", "file not found")
-    label = color_label_from_file(path)
-    if not label:
-        return ClipResult(
-            name,
-            path,
-            None,
-            "skipped",
-            "no com.dji.camera.ColorGammaSxS in the moov tail",
-        )
-    plan = stamp_plan(label, resolve_version)
-    if not apply_stamp(clip, plan, project):
-        return ClipResult(name, path, label, "skipped", "Resolve refused metadata write")
-    return ClipResult(name, path, label, "stamped", label)
+    metadata = keys_from_mp4(_read_file_tail(path) or b"")
+    label = normalize_gamma(metadata.get(GAMMA_KEY))
+    model = camera_model(metadata)
+    camera_written = bool(model) and _set_metadata(clip, "Camera Type", model)
+    color_written = False
+    details = []
+    if model:
+        details.append("Camera Type: " + model if camera_written else "Resolve refused Camera Type write")
+    if label:
+        color_written = apply_stamp(clip, stamp_plan(label, resolve_version), project)
+        if not color_written:
+            details.append("Resolve refused color metadata write")
+    else:
+        details.append("no com.dji.camera.ColorGammaSxS in the moov tail")
+    if camera_written or color_written:
+        return ClipResult(name, path, label if color_written else None, "stamped", "; ".join(details) or label)
+    return ClipResult(name, path, label, "skipped", "; ".join(details))
 
 
 def apply_stamp(clip, plan, project=None):
@@ -413,7 +428,8 @@ def process_clips(clips, project=None, resolve_version=None):
     for result in results:
         if result.status == "stamped":
             stamped += 1
-            counts[result.label] = counts.get(result.label, 0) + 1
+            count_label = result.label or "camera metadata only"
+            counts[count_label] = counts.get(count_label, 0) + 1
         else:
             skipped += 1
     return Report(results, stamped, skipped, counts, None, None)
@@ -654,10 +670,14 @@ def format_report(report):
                 continue
             name = result.name or os.path.basename(result.path or "") or "(unnamed)"
             lines.append("  %s — %s" % (name, result.detail))
+    for result in report.results:
+        if result.status == "stamped" and result.detail != result.label:
+            lines.append("  %s — %s" % (result.name or os.path.basename(result.path), result.detail))
     lines.extend(
         [
             "",
             "Look for Color Space Notes or Keywords in Customize Columns (search notes / keyword — DJI Color is not a built-in column).",
+            "Camera model: add Camera Type in Customize Columns (search camera).",
             "Clip colors: Orange D-Log2 · Navy D-Log · Pink D-Log M · Teal HLG.",
             "Rec.709 is tagged in DJI Color only, so existing clip colors stay put.",
             "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → DJI D-Gamut2 + DJI D-Log2 on Resolve 21.1+ (older: Same as Timeline, not DJI D-Log); HLG → Rec.2020 + Rec.2100 HLG.",
@@ -819,13 +839,17 @@ def _set_project_setting(project, key, value):
 def keys_from_mp4(data):
     found = {}
     _visit(data, 0, len(data), 0, found)
-    if GAMMA_KEY in found:
+    if GAMMA_KEY in found and camera_model(found):
         return found
     moov = _find_type(data, "moov")
     if moov is not None:
         _visit(data, moov.payload, moov.end, 0, found)
-    if GAMMA_KEY not in found:
+    if GAMMA_KEY not in found or not camera_model(found):
         _parse_trailing_keys_ilst(data, found)
+    if not camera_model(found):
+        model_box = _find_type(data, DJI_MODEL_ATOM)
+        if model_box is not None and model_box.end - model_box.payload <= 256:
+            found[DJI_MODEL_ATOM] = _decode(data[model_box.payload:model_box.end])
     return found
 
 
@@ -846,7 +870,7 @@ def _read_file_tail(path):
 
 
 def _visit(data, start, end, depth, found):
-    if depth >= 12 or GAMMA_KEY in found:
+    if depth >= 12:
         return
     offset = start
     names = []
@@ -861,19 +885,19 @@ def _visit(data, start, end, depth, found):
             for index, value in values.items():
                 if 1 <= index <= len(names):
                     found[names[index - 1]] = value
+        elif box.type == DJI_MODEL_ATOM and box.end - box.payload <= 256:
+            found[DJI_MODEL_ATOM] = _decode(data[box.payload:box.end])
         elif box.type in ("moov", "udta"):
             _visit(data, box.payload, box.end, depth + 1, found)
         elif box.type == "meta":
             _visit(data, box.payload, box.end, depth + 1, found)
-            if GAMMA_KEY not in found and box.payload + 4 < box.end:
+            if data[box.payload:box.payload + 4] == b"\x00\x00\x00\x00" and box.payload + 4 < box.end:
                 _visit(data, box.payload + 4, box.end, depth + 1, found)
-        if GAMMA_KEY in found:
-            return
         offset = box.end
 
 
 def _find_type(data, type_name):
-    needle = type_name.encode("ascii")
+    needle = type_name.encode("latin-1")
     if len(needle) != 4 or len(data) < 8:
         return None
     i = 0
@@ -973,7 +997,7 @@ def _parse_trailing_keys_ilst(data, found):
     """Cover-art `ilst` can push `moov` start out of a 2 MiB tail.
 
     DJI still writes ColorGammaSxS in a small keys+ilst pair at EOF. Walk
-    backwards for a `keys` box that lists the gamma key, then its `ilst`.
+    backwards for `keys` boxes listing gamma or camera model, then their `ilst`.
     """
     end = len(data)
     needle = b"keys"
@@ -988,14 +1012,13 @@ def _parse_trailing_keys_ilst(data, found):
             and box.payload == index + 4
         ):
             names = _parse_keys(data, box.payload, box.end)
-            if GAMMA_KEY in names:
+            if any(key in names for key in (GAMMA_KEY, DJI_MODEL_KEY, MODEL_KEY)):
                 sibling = _next_box(data, box.end, len(data))
                 if sibling is not None and sibling.type == "ilst":
                     values = _parse_ilst(data, sibling.payload, sibling.end)
                     for item_index, value in values.items():
                         if 1 <= item_index <= len(names):
-                            found[names[item_index - 1]] = value
-                    return
+                            found.setdefault(names[item_index - 1], value)
         end = index
 
 
@@ -1012,8 +1035,12 @@ def _cli_or_script():
     args = [arg for arg in sys.argv[1:] if not arg.startswith("-")]
     if args:
         for path in args:
-            label = color_label_from_file(path)
-            print("%s\t%s" % (path, label if label else "no ColorGammaSxS"))
+            metadata = {} if is_proxy_path(path) else keys_from_mp4(_read_file_tail(path) or b"")
+            label = normalize_gamma(metadata.get(GAMMA_KEY))
+            model = camera_model(metadata)
+            print("%s\t%s\t%s" % (
+                path, label or "no ColorGammaSxS", model or "no camera model"
+            ))
         return
     print("Install: copy this file to Resolve's Fusion/Scripts/Utility")
     print("folder as 'DJI Clip Color.py', then Workspace > Scripts.")

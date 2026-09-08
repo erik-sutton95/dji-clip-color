@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests.mp4_fixtures import color_gamma_mp4
+from tests.mp4_fixtures import color_gamma_mp4, camera_mp4, box, u32
 
 import dji_clip_color as dji
 
@@ -62,6 +62,100 @@ class ParseColorGammaTests(unittest.TestCase):
             self.assertEqual(dji.color_label_from_file(path), "D-Log2")
         finally:
             os.remove(path)
+
+
+class CameraMetadataTests(unittest.TestCase):
+    def test_reads_dji_userdata_model_with_or_without_gamma(self):
+        for gamma in (None, "D-Log M"):
+            self.assertEqual(
+                dji.camera_model(dji.keys_from_mp4(camera_mp4("Osmo Action 4", gamma))),
+                "Osmo Action 4",
+            )
+
+    def test_reads_model_after_gamma_metadata(self):
+        data = color_gamma_mp4("D-Log M") + box("moov", box("udta", box("\xa9mdl", b"Osmo Action 4")))
+        self.assertEqual(dji.camera_model(dji.keys_from_mp4(data)), "Osmo Action 4")
+
+    def test_reads_quicktime_model_key_without_gamma(self):
+        name = b"com.apple.quicktime.model"
+        keys = box("keys", u32(0) + u32(1) + u32(8 + len(name)) + b"mdta" + name)
+        ilst = box("ilst", box(1, box("data", u32(1) + u32(0) + b"Osmo Pocket 3")))
+        for prefix in (b"", u32(0)):
+            data = box("moov", box("meta", prefix + keys + ilst))
+            self.assertEqual(dji.camera_model(dji.keys_from_mp4(data)), "Osmo Pocket 3")
+        self.assertEqual(dji.camera_model(dji.keys_from_mp4(b"junk" + keys + ilst)), "Osmo Pocket 3")
+
+    def test_reads_dji_camera_model_key(self):
+        name = b"com.dji.camera.CameraModel"
+        keys = box("keys", u32(0) + u32(1) + u32(8 + len(name)) + b"mdta" + name)
+        ilst = box("ilst", box(1, box("data", u32(1) + u32(0) + b"Osmo Action 4")))
+        for data in (box("moov", box("meta", keys + ilst)), b"junk" + keys + ilst):
+            self.assertEqual(dji.camera_model(dji.keys_from_mp4(data)), "Osmo Action 4")
+
+    def test_reads_dji_model_when_moov_start_is_outside_tail(self):
+        data = b"junk" + box("\xa9mdl", b"Osmo Action 4\x00")
+        self.assertEqual(dji.camera_model(dji.keys_from_mp4(data)), "Osmo Action 4")
+
+    def test_stamps_camera_even_without_color(self):
+        for gamma in (None, "D-Log M"):
+            with tempfile.NamedTemporaryFile(suffix=".MP4") as media:
+                media.write(camera_mp4("Osmo Action 4", gamma))
+                media.flush()
+                clip = FakeClip(media.name)
+                result = dji.process_clip(clip)
+                self.assertEqual(result.status, "stamped")
+                self.assertEqual(clip.metadata["Camera Type"], "Osmo Action 4")
+                if gamma is None:
+                    self.assertEqual(clip.clip_color, "")
+                    self.assertEqual(clip.GetClipProperty("Input Color Space"), "")
+                else:
+                    self.assertEqual(clip.metadata["Color Space Notes"], gamma)
+
+    def test_missing_model_preserves_existing_camera_type(self):
+        with tempfile.NamedTemporaryFile(suffix=".MP4") as media:
+            media.write(color_gamma_mp4("D-Log M"))
+            media.flush()
+            clip = FakeClip(media.name)
+            clip.metadata["Camera Type"] = "Manual camera"
+            dji.process_clip(clip)
+            self.assertEqual(clip.metadata["Camera Type"], "Manual camera")
+
+    def test_refused_camera_write_is_reported(self):
+        with tempfile.NamedTemporaryFile(suffix=".MP4") as media:
+            media.write(camera_mp4("Osmo Action 4", "D-Log M"))
+            media.flush()
+            clip = FakeClip(media.name)
+            setter = clip.SetMetadata
+            clip.SetMetadata = lambda key, value: False if key == "Camera Type" else setter(key, value)
+            report = dji.process_clips([clip])
+            self.assertEqual(report.stamped, 1)
+            self.assertIn("refused Camera Type", dji.format_report(report))
+
+    def test_camera_only_summary_and_refused_write(self):
+        with tempfile.NamedTemporaryFile(suffix=".MP4") as media:
+            media.write(camera_mp4("Osmo Pocket 3"))
+            media.flush()
+            clip = FakeClip(media.name)
+            report = dji.process_clips([clip])
+            self.assertEqual(report.counts, {"camera metadata only": 1})
+            self.assertIn("Osmo Pocket 3", dji.format_report(report))
+            clip.SetMetadata = lambda key, value: False
+            result = dji.process_clip(clip)
+            self.assertEqual(result.status, "skipped")
+            self.assertIn("refused Camera Type", result.detail)
+
+    def test_proxy_does_not_import_camera(self):
+        with tempfile.NamedTemporaryFile(suffix=".LRF") as media:
+            media.write(camera_mp4("Osmo Action 4", "Rec.709"))
+            media.flush()
+            clip = FakeClip(media.name)
+            self.assertEqual(dji.process_clip(clip).status, "skipped")
+            self.assertEqual(clip.metadata, {})
+
+    def test_empty_or_malformed_model_is_ignored(self):
+        for model in ("", " ", "\x00", "bad\nmodel", "\ufffd"):
+            self.assertIsNone(dji.camera_model(dji.keys_from_mp4(camera_mp4(model))))
+        self.assertIsNone(dji.camera_model(dji.keys_from_mp4(b"junk" + u32(999) + b"\xa9mdlshort")))
 
 
 class ProxyPathTests(unittest.TestCase):
