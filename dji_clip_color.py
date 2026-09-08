@@ -28,10 +28,12 @@ CLIP_COLORS = {
     "Rec.2100 HLG": "Teal",
 }
 
-# Resolve 21.0.4 ships DJI D-Gamut + DJI D-Log only. There is no D-Log2 CST.
 # Combined string is for projects with a single Input Color Space menu;
 # separate gamut/gamma is for "Use Separate Color Space and Gamma".
-# D-Log2 must not use DJI D-Gamut — Resolve still labels that IDT as D-Log.
+# Resolve 21.1 added official DJI D-Gamut2 / DJI D-Log2. Older Resolve has
+# no D-Log2 CST — do not write DJI D-Gamut (that IDT still displays as D-Log).
+D_LOG2_CST_VERSION = (21, 1)
+
 INPUT_TRANSFORMS = {
     "D-Log": {
         "combined": "DJI D-Gamut/D-Log",
@@ -61,8 +63,15 @@ INPUT_TRANSFORMS = {
         "combined": "Same as Timeline",
         "color_space": "Same as Timeline",
         "gamma": None,
-        "note": "Resolve has no D-Log2 CST — Same as Timeline, not DJI D-Log",
+        "note": "Resolve has no D-Log2 CST before 21.1 — Same as Timeline, not DJI D-Log",
     },
+}
+
+INPUT_TRANSFORM_D_LOG2_CST = {
+    "combined": "DJI D-Gamut2/D-Log2",
+    "color_space": "DJI D-Gamut2",
+    "gamma": "DJI D-Log2",
+    "note": None,
 }
 
 # Resolve has no D-Log2 IDT. "DJI D-Gamut" still displays as DJI D-Gamut/D-Log.
@@ -150,9 +159,90 @@ def color_label_from_file(path):
     return shot_color(data, path)
 
 
-def stamp_plan(gamma):
+def _coerce_version(version):
+    if version is None:
+        return None
+    if isinstance(version, (str, bytes)):
+        return _parse_version_string(version)
+    try:
+        seq = list(version)
+    except TypeError:
+        return None
+    nums = []
+    for item in seq[:3]:
+        try:
+            nums.append(int(item))
+        except (TypeError, ValueError):
+            break
+    if len(nums) < 2:
+        return None
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
+
+def _parse_version_string(text):
+    if isinstance(text, bytes):
+        try:
+            text = text.decode("ascii", "replace")
+        except Exception:
+            return None
+    text = str(text or "").strip()
+    if not text:
+        return None
+    nums = []
+    token = ""
+    for char in text:
+        if char.isdigit():
+            token += char
+        else:
+            if token:
+                nums.append(int(token))
+                token = ""
+            if char != "." and len(nums) >= 2:
+                break
+    if token:
+        nums.append(int(token))
+    if len(nums) < 2:
+        return None
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
+
+def _resolve_version(resolve):
+    if resolve is None:
+        return None
+    getter = getattr(resolve, "GetVersion", None)
+    if callable(getter):
+        try:
+            parsed = _coerce_version(getter())
+        except Exception:
+            parsed = None
+        if parsed:
+            return parsed
+    getter = getattr(resolve, "GetVersionString", None)
+    if callable(getter):
+        try:
+            return _coerce_version(getter())
+        except Exception:
+            return None
+    return None
+
+
+def has_d_log2_cst(version):
+    parsed = _coerce_version(version)
+    if parsed is None:
+        return False
+    return parsed[:2] >= D_LOG2_CST_VERSION
+
+
+def stamp_plan(gamma, resolve_version=None):
     label = normalize_gamma(gamma) or gamma
-    transform = INPUT_TRANSFORMS.get(label, {})
+    if label == "D-Log2" and has_d_log2_cst(resolve_version):
+        transform = INPUT_TRANSFORM_D_LOG2_CST
+    else:
+        transform = INPUT_TRANSFORMS.get(label, {})
     return StampPlan(
         metadata_key=METADATA_KEY,
         metadata_value=label,
@@ -180,7 +270,7 @@ def clip_file_path(clip):
     return path
 
 
-def process_clip(clip, project=None):
+def process_clip(clip, project=None, resolve_version=None):
     name = ""
     try:
         name = clip.GetName() or ""
@@ -208,7 +298,7 @@ def process_clip(clip, project=None):
             "skipped",
             "no com.dji.camera.ColorGammaSxS in the moov tail",
         )
-    plan = stamp_plan(label)
+    plan = stamp_plan(label, resolve_version)
     if not apply_stamp(clip, plan, project):
         return ClipResult(name, path, label, "skipped", "Resolve refused metadata write")
     return ClipResult(name, path, label, "stamped", label)
@@ -242,16 +332,21 @@ def _write_visible_label(clip, label):
 def apply_input_transform(clip, plan, project=None):
     """Set Input Color Space and Input Gamma.
 
-    DJI D-Log gamma only sticks if we write the combined IDT
-    ``DJI D-Gamut/D-Log`` while separateColorSpaceAndGamma is off, then
-    turn separate on. A direct Input Gamma write is ignored (Resolve 21).
+    DJI D-Log / D-Log2 gamma only sticks if we write the combined IDT
+    (``DJI D-Gamut/D-Log`` or ``DJI D-Gamut2/D-Log2``) while
+    separateColorSpaceAndGamma is off, then turn separate on. A direct
+    Input Gamma write is ignored (Resolve 21).
 
-    D-Log2 has no Resolve profile. Do not write DJI D-Log; set Same as
-    Timeline (or Bypass) instead.
+    Before Resolve 21.1 there is no D-Log2 CST. Do not write DJI D-Log;
+    set Same as Timeline (or Bypass) instead.
     """
     if not plan.input_color_space and not plan.input_gamma and not plan.input_combined:
         return None
-    if plan.input_combined and plan.input_gamma == "DJI D-Log":
+    if (
+        plan.input_combined
+        and plan.input_gamma
+        and "/" in plan.input_combined
+    ):
         _set_project_setting(project, "separateColorSpaceAndGamma", "0")
         ok = _set_clip_property(clip, "Input Color Space", plan.input_combined)
         _set_project_setting(project, "separateColorSpaceAndGamma", "1")
@@ -292,9 +387,9 @@ def _apply_passthrough_input(clip, plan, project):
     return None
 
 
-def process_clips(clips, project=None):
-    # D-Log first: combined IDT + separate toggle. Other labels after so a
-    # later D-Log write does not skip them.
+def process_clips(clips, project=None, resolve_version=None):
+    # Combined IDT first (D-Log, and D-Log2 on 21.1+): separate toggle.
+    # Other labels after so a later D-Log write does not skip them.
     dlog = []
     rest = []
     for clip in clips:
@@ -302,12 +397,16 @@ def process_clips(clips, project=None):
         label = None
         if path and os.path.isfile(path) and not is_proxy_path(path):
             label = color_label_from_file(path)
-        if label == "D-Log":
+        if label == "D-Log" or (
+            label == "D-Log2" and has_d_log2_cst(resolve_version)
+        ):
             dlog.append(clip)
         else:
             rest.append(clip)
-    results = [process_clip(clip, project) for clip in dlog]
-    results.extend(process_clip(clip, project) for clip in rest)
+    results = [process_clip(clip, project, resolve_version) for clip in dlog]
+    results.extend(
+        process_clip(clip, project, resolve_version) for clip in rest
+    )
     stamped = 0
     skipped = 0
     counts = {}
@@ -358,7 +457,7 @@ def run(resolve):
         return Report([], 0, 0, {}, error, managed)
 
     def _stamp():
-        return process_clips(clips, project)
+        return process_clips(clips, project, _resolve_version(resolve))
 
     report, _toggled, _orig = write_with_color_management(project, _stamp)
     return Report(
@@ -561,12 +660,12 @@ def format_report(report):
             "Look for Color Space Notes or Keywords in Customize Columns (search notes / keyword — DJI Color is not a built-in column).",
             "Clip colors: Orange D-Log2 · Navy D-Log · Pink D-Log M · Teal HLG.",
             "Rec.709 is tagged in DJI Color only, so existing clip colors stay put.",
-            "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → Same as Timeline (not DJI D-Log); HLG → Rec.2020 + Rec.2100 HLG.",
+            "Input Color Space / Gamma: D-Log → DJI D-Gamut + DJI D-Log; D-Log2 → DJI D-Gamut2 + DJI D-Log2 on Resolve 21.1+ (older: Same as Timeline, not DJI D-Log); HLG → Rec.2020 + Rec.2100 HLG.",
         ]
     )
     if report.counts.get("D-Log2"):
         lines.append(
-            "D-Log2: Input Color Space set to Same as Timeline (Resolve has no D-Log2 CST — not tagged as DJI D-Log)."
+            "D-Log2: Resolve 21.1+ tags DJI D-Gamut2 + DJI D-Log2. Older Resolve has no D-Log2 CST — Same as Timeline, not DJI D-Log."
         )
     if report.counts.get("D-Log M"):
         lines.append(

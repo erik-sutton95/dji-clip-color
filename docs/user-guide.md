@@ -141,13 +141,17 @@ timeline/output color space, and Automatic color management. Clip labels stay.
 | Rec.2100 HLG | Rec.2020 | Rec.2100 HLG |
 | Rec.709 | Rec.709 | Rec.709 |
 | D-Log M | Rec.709 | Rec.709 |
-| D-Log2 | Same as Timeline | — |
+| D-Log2 (Resolve **21.1+**) | DJI D-Gamut2 | DJI D-Log2 |
+| D-Log2 (Resolve 21.0 and older) | Same as Timeline | — |
 
-**D-Log2 and D-Log M:** Resolve has no official profile for either. DJI has
-not published a white paper. D-Log2 is **Same as Timeline** — not DJI D-Log
-and not DJI D-Gamut (Resolve still prints that IDT as `DJI D-Gamut/D-Log`).
-D-Log M is tagged Rec.709. Use a LUT or a CST on the first node. Re-run the
-script on clips that were tagged D-Log by an older version.
+**D-Log2:** Resolve **21.1** added official **DJI D-Gamut2** / **DJI D-Log2**.
+The script tags those from 21.1 on. Older Resolve has no D-Log2 CST — D-Log2
+is **Same as Timeline**, not DJI D-Log and not DJI D-Gamut (that IDT still
+prints as `DJI D-Gamut/D-Log`). Re-run the script after upgrading to 21.1 so
+older D-Log2 clips pick up the new IDT.
+
+**D-Log M** still has no official profile (DJI has not published a white
+paper). It is tagged Rec.709. Use a LUT or a CST on the first node.
 
 On Resolve 18 and older there is no custom-column API, so the DJI Color value
 is written to **Keywords** instead.

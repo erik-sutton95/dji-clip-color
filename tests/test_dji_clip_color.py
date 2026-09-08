@@ -136,6 +136,24 @@ class StampPlanTests(unittest.TestCase):
         self.assertNotEqual(plan.input_combined, "DJI D-Gamut/D-Log")
         self.assertIn("D-Log2", plan.input_note)
 
+    def test_d_log2_on_resolve_21_1_uses_official_cst(self):
+        plan = dji.stamp_plan("D-Log2", resolve_version=(21, 1, 0))
+        self.assertEqual(plan.input_combined, "DJI D-Gamut2/D-Log2")
+        self.assertEqual(plan.input_color_space, "DJI D-Gamut2")
+        self.assertEqual(plan.input_gamma, "DJI D-Log2")
+        self.assertNotEqual(plan.input_gamma, "DJI D-Log")
+        self.assertNotEqual(plan.input_combined, "DJI D-Gamut/D-Log")
+
+    def test_d_log2_cst_is_gated_to_resolve_21_1(self):
+        self.assertFalse(dji.has_d_log2_cst(None))
+        self.assertFalse(dji.has_d_log2_cst((21, 0, 4)))
+        self.assertFalse(dji.has_d_log2_cst("21.0.4"))
+        self.assertTrue(dji.has_d_log2_cst((21, 1, 0)))
+        self.assertTrue(dji.has_d_log2_cst("21.1.0"))
+        self.assertTrue(dji.has_d_log2_cst([21, 2, 0, 12, ""]))
+        plan = dji.stamp_plan("D-Log2", resolve_version=(21, 0, 4))
+        self.assertEqual(plan.input_combined, "Same as Timeline")
+
 
 class FakeClip(object):
     def __init__(self, path, name="clip", third_party=True):
@@ -197,6 +215,29 @@ class ProcessClipTests(unittest.TestCase):
         self.assertEqual(clip.GetClipProperty("Input Color Space"), "Same as Timeline")
         self.assertEqual(clip.GetClipProperty("Input Gamma"), "")
         self.assertNotEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut/D-Log")
+
+    def test_d_log2_on_resolve_21_1_sets_d_gamut2_and_d_log2(self):
+        path = self._write("D-Log2")
+        clip = FakeClip(path, name="log2")
+        project = FakeProject([])
+        result = dji.process_clip(clip, project, resolve_version=(21, 1, 0))
+        self.assertEqual(result.status, "stamped")
+        self.assertEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut2/D-Log2")
+        self.assertEqual(clip.GetClipProperty("Input Gamma"), "DJI D-Log2")
+        self.assertNotEqual(clip.GetClipProperty("Input Gamma"), "DJI D-Log")
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "1")
+
+    def test_run_on_resolve_21_1_tags_d_log2_cst(self):
+        path = self._write("D-Log2")
+        clip = FakeClip(path, name="sel")
+        resolve = FakeResolve([clip], version=(21, 1, 0))
+        report = dji.run(resolve)
+        self.assertIsNone(report.error)
+        self.assertEqual(report.stamped, 1)
+        self.assertEqual(clip.GetClipProperty("Input Color Space"), "DJI D-Gamut2/D-Log2")
+        self.assertEqual(clip.GetClipProperty("Input Gamma"), "DJI D-Log2")
+        project = resolve.GetProjectManager().GetCurrentProject()
+        self.assertEqual(project.GetSetting("separateColorSpaceAndGamma"), "0")
 
     def test_d_log_sets_input_color_space_and_gamma(self):
         path = self._write("D-Log")
@@ -489,11 +530,15 @@ class FakeProjectManager(object):
 
 
 class FakeResolve(object):
-    def __init__(self, clips):
+    def __init__(self, clips, version=(21, 0, 4, 0, "")):
         self._pm = FakeProjectManager(FakeProject(clips))
+        self._version = version
 
     def GetProjectManager(self):
         return self._pm
+
+    def GetVersion(self):
+        return list(self._version)
 
 
 if __name__ == "__main__":
